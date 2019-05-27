@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -98,6 +99,30 @@ void *run_thread_send(void *message_body) {
   }
 }
 
+void list_users() {
+  DIR *queues_dir;
+  struct dirent *ptr_dir;
+
+  queues_dir = opendir("/dev/mqueue");
+
+  if (queues_dir) {
+    printf("Usuários disponíveis:\n");
+    while ((ptr_dir = readdir(queues_dir)) != NULL) {
+      if (!strcmp(ptr_dir->d_name, ".") || !strcmp(ptr_dir->d_name, "..")) {
+        continue;
+      }
+
+      char queue_name[CHAT_FILE_LEN];
+      strcpy(queue_name, ptr_dir->d_name);
+
+      char *token = strtok(queue_name, "-");
+      token = strtok(NULL, "-");
+
+      printf("%s\n", token);
+    }
+  }
+}
+
 int main(int argc, char const *argv[]) {
   char queue_name[CHAT_FILE_LEN];
 
@@ -115,7 +140,12 @@ int main(int argc, char const *argv[]) {
   while (1) {
     memset(message_body, 0, MAX_MSG_LEN);
     fgets(message_body, MAX_MSG_LEN, stdin);
-    
+
+    if (strcmp(message_body, "list\n") == 0) {
+      list_users();
+      continue;
+    }
+
     char message_body_thread[MAX_MSG_LEN];
     strcpy(message_body_thread, message_body);
 
