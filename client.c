@@ -41,7 +41,21 @@ void *run_thread_receive(void *queue) {
       exit(1);
     }
 
-    printf("\n%s\n", message);
+    char formatted_message[MAX_MSG_LEN];
+    char *token = strtok(message, ":");
+
+    strcat(formatted_message, token);
+    strcat(formatted_message, ": ");
+
+    for (int i = 0; i < 2; i++) {
+      token = strtok(NULL, ":");
+    }
+
+    strcat(formatted_message, token);
+
+    printf("%s\n", formatted_message);
+    memset(message, 0, MAX_MSG_LEN);
+    memset(formatted_message, 0, MAX_MSG_LEN);
   }
 
 }
@@ -69,8 +83,6 @@ void *run_thread_send(void *message_body) {
   strcpy(receiver_queue, "/chat-");
   strcat(receiver_queue, receiver_name);
 
-  printf("%s\n", receiver_queue);
-
   mqd_t oq = mq_open(receiver_queue, O_WRONLY, 0622, &attr);
 
   if (oq < 0) {
@@ -91,6 +103,7 @@ int main(int argc, char const *argv[]) {
 
   char message_body[MAX_MSG_LEN];
   mqd_t queue = register_user(queue_name, username);
+  getchar();
 
   printf("Fila %s criada para user %s\n", queue_name, username);
 
@@ -100,12 +113,14 @@ int main(int argc, char const *argv[]) {
   printf("Envie mensagens no formato de:para:mensagem\n");
 
   while (1) {
-    //memset(message_body, 0, MAX_MSG_LEN);
-    getchar();
+    memset(message_body, 0, MAX_MSG_LEN);
     fgets(message_body, MAX_MSG_LEN, stdin);
     
+    char message_body_thread[MAX_MSG_LEN];
+    strcpy(message_body_thread, message_body);
+
     pthread_t sender;
-    pthread_create(&sender, NULL, run_thread_send, message_body);
+    pthread_create(&sender, NULL, run_thread_send, message_body_thread);
   }
 
   pthread_join(receiver, NULL);
