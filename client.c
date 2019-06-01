@@ -5,6 +5,8 @@
 #include <mqueue.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "types.h"
 
 char username[MAX_USERNAME_LEN];
@@ -20,7 +22,26 @@ mqd_t register_user(char *queue_name, char *username) {
   mqd_t queue;
   strcpy(queue_name, CHAT_PREFIX);
   strcat(queue_name, username);
- 
+
+
+  DIR *queues_dir;
+  struct dirent *ptr_dir;
+  queues_dir = opendir("/dev/mqueue");
+  
+  if (queues_dir) {
+    while ((ptr_dir = readdir(queues_dir)) != NULL) {
+      char filename[CHAT_FILE_LEN];
+
+      strcpy(filename, "/");
+      strcat(filename, ptr_dir->d_name);
+
+      if (!strcmp(filename, queue_name)) {
+          printf("Já existe outro usuário com esse nome!\n");
+          exit(1);
+      }
+    }
+  }
+
   queue = mq_open(queue_name, O_RDWR|O_CREAT, 0622, &attr);
 
   if (queue < 0) {
@@ -112,13 +133,16 @@ void list_users() {
         continue;
       }
 
-      char queue_name[CHAT_FILE_LEN];
-      strcpy(queue_name, ptr_dir->d_name);
+      if (!strncmp(ptr_dir->d_name, "chat-", 5)) {
+        char queue_name[CHAT_FILE_LEN];
+        strcpy(queue_name, ptr_dir->d_name);
 
-      char *token = strtok(queue_name, "-");
-      token = strtok(NULL, "-");
+        char *token = strtok(queue_name, "-");
+        token = strtok(NULL, "-");
 
-      printf("%s\n", token);
+        printf("%s\n", token);
+      }
+
     }
   }
 }
@@ -144,13 +168,16 @@ int main(int argc, char const *argv[]) {
     if (strcmp(message_body, "list\n") == 0) {
       list_users();
       continue;
+    } else if (strncmp(message_body, username, strlen(username)) == 0) {
+      char message_body_thread[MAX_MSG_LEN];
+      strcpy(message_body_thread, message_body);
+
+      pthread_t sender;
+      pthread_create(&sender, NULL, run_thread_send, message_body_thread);
+    } else {
+      printf("Comando inválido\n");
     }
 
-    char message_body_thread[MAX_MSG_LEN];
-    strcpy(message_body_thread, message_body);
-
-    pthread_t sender;
-    pthread_create(&sender, NULL, run_thread_send, message_body_thread);
   }
 
   pthread_join(receiver, NULL);
