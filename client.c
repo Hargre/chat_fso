@@ -16,7 +16,7 @@ char username[MAX_USERNAME_LEN];
 mqd_t register_user(char *queue_name, char *username) {
   printf("Bem-vindo ao chat! Qual seu nome? (max 10 caracteres)\n");
   scanf("%s", username);
-  
+
   struct mq_attr attr;
   attr.mq_maxmsg = MAX_MSG;
   attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
@@ -29,7 +29,7 @@ mqd_t register_user(char *queue_name, char *username) {
   DIR *queues_dir;
   struct dirent *ptr_dir;
   queues_dir = opendir("/dev/mqueue");
-  
+
   if (queues_dir) {
     while ((ptr_dir = readdir(queues_dir)) != NULL) {
       char filename[CHAT_FILE_LEN];
@@ -96,6 +96,63 @@ void *run_thread_receive(void *queue) {
 
 }
 
+void retry(mqd_t queue, char *message_body) {
+  int retries = 0;
+
+  while (retries < 3) {
+    int status = mq_send(queue, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
+    if (status < 0) {
+      retries += 1;
+      sleep(2);
+    } else {
+      pthread_exit((void *) 1);
+    }
+  }
+  printf("ERRO %s\n", message_body);
+}
+
+void *run_thread_broadcast(void *message_body) {
+  struct mq_attr attr;
+  attr.mq_maxmsg = MAX_MSG;
+  attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
+
+  char message[MAX_MSG_LEN];
+  strcpy(message, (char *) message_body);
+
+  DIR *queues_dir;
+  struct dirent *ptr_dir;
+
+  char receiver_queue[CHAT_FILE_LEN];
+
+  queues_dir = opendir("/dev/mqueue");
+
+  if (queues_dir) {
+    while ((ptr_dir = readdir(queues_dir)) != NULL) {
+      memset(receiver_queue, 0, CHAT_FILE_LEN);
+      if (!strncmp(ptr_dir->d_name, "chat-", 5)) {
+        strcpy(receiver_queue, "/");
+        strcat(receiver_queue, ptr_dir->d_name);
+
+        __mode_t old_umask = umask(0155);
+        mqd_t oq = mq_open(receiver_queue, O_WRONLY|O_NONBLOCK, 0622, &attr);
+        umask(old_umask);
+
+        if (oq < 0) {
+          perror("open");
+          exit(1);
+        }
+
+        int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
+        int retries = 0;
+
+        if (status < 0) {
+          retry(oq, message_body);
+        }
+      }
+    }
+  }
+}
+
 void *run_thread_send(void *message_body) {
   struct mq_attr attr;
   attr.mq_maxmsg = MAX_MSG;
@@ -117,45 +174,8 @@ void *run_thread_send(void *message_body) {
   }
 
   if (!strcmp(receiver_name, "all")) {
-    DIR *queues_dir;
-    struct dirent *ptr_dir;
-
-    queues_dir = opendir("/dev/mqueue");
-
-    if (queues_dir) {
-      while ((ptr_dir = readdir(queues_dir)) != NULL) {
-        memset(receiver_queue, 0, CHAT_FILE_LEN);
-        if (!strncmp(ptr_dir->d_name, "chat-", 5)) {
-          strcpy(receiver_queue, "/");
-          strcat(receiver_queue, ptr_dir->d_name);
-
-          __mode_t old_umask = umask(0155);
-          mqd_t oq = mq_open(receiver_queue, O_WRONLY|O_NONBLOCK, 0622, &attr);
-          umask(old_umask);
-
-          if (oq < 0) {
-            perror("open");
-            exit(1);
-          }
-
-          int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
-          int retries = 0;
-
-          if (status < 0) {
-            while (retries < 3) {
-              int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
-              if (status < 0) {
-                retries += 1;
-                sleep(2);
-              } else {
-                pthread_exit((void *) 1);
-              }
-            }
-            printf("ERRO %s\n", message_body);
-          }
-        }
-      }
-    }
+    pthread_t broadcast;
+    pthread_create(&broadcast, NULL, run_thread_broadcast, message_body);
   } else {
     strcpy(receiver_queue, "/chat-");
     strcat(receiver_queue, receiver_name);
@@ -176,19 +196,9 @@ void *run_thread_send(void *message_body) {
 
     int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
     int retries = 0;
-    
-    if (status < 0) {
 
-      while (retries < 3) {
-        int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
-        if (status < 0) {
-          retries += 1;
-          sleep(2);
-        } else {
-          pthread_exit((void *) 1);
-        }
-      }
-      printf("ERRO %s\n", message_body);
+    if (status < 0) {
+      retry(oq, message_body);
     }
   }
 }
