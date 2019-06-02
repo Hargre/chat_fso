@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -145,8 +146,13 @@ void *run_thread_send(void *message_body) {
     umask(old_umask);
 
     if (oq < 0) {
-      perror("open");
-      exit(1);
+      if (errno == ENOENT) {
+        printf("UNKNOWNUSER %s\n", receiver_name);
+        pthread_exit(1);
+      } else {
+        perror("open");
+        exit(1);
+      }
     }
 
     int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
