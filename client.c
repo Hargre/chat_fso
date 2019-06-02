@@ -68,16 +68,26 @@ void *run_thread_receive(void *queue) {
     }
 
     char formatted_message[MAX_MSG_LEN];
+
     char *token = strtok(message, ":");
+    char sender[MAX_USERNAME_LEN];
+    strcpy(sender, token);
 
-    strcat(formatted_message, token);
-    strcat(formatted_message, ": ");
+    token = strtok(NULL, ":");
+    char receiver[MAX_USERNAME_LEN];
+    strcpy(receiver, token);
 
-    for (int i = 0; i < 2; i++) {
-      token = strtok(NULL, ":");
+    token = strtok(NULL, ":");
+    char message_content[MAX_TEXT_LEN];
+    strcpy(message_content, token);
+
+    if (!strcmp(receiver, "all")) {
+      strcat(formatted_message, "Broadcast de ");
     }
 
-    strcat(formatted_message, token);
+    strcat(formatted_message, sender);
+    strcat(formatted_message, ": ");
+    strcat(formatted_message, message_content);
 
     printf("%s\n", formatted_message);
     memset(message, 0, MAX_MSG_LEN);
@@ -148,7 +158,7 @@ void *run_thread_send(void *message_body) {
     if (oq < 0) {
       if (errno == ENOENT) {
         printf("UNKNOWNUSER %s\n", receiver_name);
-        pthread_exit(1);
+        pthread_exit((void *) 1);
       } else {
         perror("open");
         exit(1);
