@@ -42,7 +42,9 @@ mqd_t register_user(char *queue_name, char *username) {
     }
   }
 
+  __mode_t old_umask = umask(0155);
   queue = mq_open(queue_name, O_RDWR|O_CREAT, 0622, &attr);
+  umask(old_umask);
 
   if (queue < 0) {
     perror("mq_open");
@@ -102,22 +104,58 @@ void *run_thread_send(void *message_body) {
     j++;
   }
 
-  strcpy(receiver_queue, "/chat-");
-  strcat(receiver_queue, receiver_name);
+  if (!strcmp(receiver_name, "all")) {
+    DIR *queues_dir;
+    struct dirent *ptr_dir;
 
-  mqd_t oq = mq_open(receiver_queue, O_WRONLY, 0622, &attr);
+    queues_dir = opendir("/dev/mqueue");
 
-  if (oq < 0) {
-    perror("open");
-    exit(1);
+    if (queues_dir) {
+      while ((ptr_dir = readdir(queues_dir)) != NULL) {
+        memset(receiver_queue, 0, CHAT_FILE_LEN);
+        if (!strncmp(ptr_dir->d_name, "chat-", 5)) {
+          strcpy(receiver_queue, "/");
+          strcat(receiver_queue, ptr_dir->d_name);
+
+          __mode_t old_umask = umask(0155);
+          mqd_t oq = mq_open(receiver_queue, O_WRONLY, 0622, &attr);
+          umask(old_umask);
+
+          if (oq < 0) {
+            perror("open");
+            exit(1);
+          }
+
+          int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
+
+          if (status < 0) {
+            perror("send");
+            exit(1);
+          }
+        }
+      }
+    }
+  } else {
+    strcpy(receiver_queue, "/chat-");
+    strcat(receiver_queue, receiver_name);
+
+    __mode_t old_umask = umask(0155);
+    mqd_t oq = mq_open(receiver_queue, O_WRONLY, 0622, &attr);
+    umask(old_umask);
+
+    if (oq < 0) {
+      perror("open");
+      exit(1);
+    }
+
+    int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
+
+    if (status < 0) {
+      perror("send");
+      exit(1);
+    }
   }
 
-  int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
-
-  if (status < 0) {
-    perror("send");
-    exit(1);
-  }
 }
 
 void list_users() {
@@ -129,10 +167,6 @@ void list_users() {
   if (queues_dir) {
     printf("Usuários disponíveis:\n");
     while ((ptr_dir = readdir(queues_dir)) != NULL) {
-      if (!strcmp(ptr_dir->d_name, ".") || !strcmp(ptr_dir->d_name, "..")) {
-        continue;
-      }
-
       if (!strncmp(ptr_dir->d_name, "chat-", 5)) {
         char queue_name[CHAT_FILE_LEN];
         strcpy(queue_name, ptr_dir->d_name);
@@ -142,7 +176,6 @@ void list_users() {
 
         printf("%s\n", token);
       }
-
     }
   }
 }
