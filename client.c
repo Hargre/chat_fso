@@ -130,7 +130,7 @@ void *run_thread_send(void *message_body) {
           strcat(receiver_queue, ptr_dir->d_name);
 
           __mode_t old_umask = umask(0155);
-          mqd_t oq = mq_open(receiver_queue, O_WRONLY, 0622, &attr);
+          mqd_t oq = mq_open(receiver_queue, O_WRONLY|O_NONBLOCK, 0622, &attr);
           umask(old_umask);
 
           if (oq < 0) {
@@ -139,10 +139,19 @@ void *run_thread_send(void *message_body) {
           }
 
           int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
+          int retries = 0;
 
           if (status < 0) {
-            perror("send");
-            exit(1);
+            while (retries < 3) {
+              int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
+              if (status < 0) {
+                retries += 1;
+                sleep(2);
+              } else {
+                pthread_exit((void *) 1);
+              }
+            }
+            printf("ERRO %s\n", message_body);
           }
         }
       }
@@ -152,7 +161,7 @@ void *run_thread_send(void *message_body) {
     strcat(receiver_queue, receiver_name);
 
     __mode_t old_umask = umask(0155);
-    mqd_t oq = mq_open(receiver_queue, O_WRONLY, 0622, &attr);
+    mqd_t oq = mq_open(receiver_queue, O_WRONLY|O_NONBLOCK, 0622, &attr);
     umask(old_umask);
 
     if (oq < 0) {
@@ -166,13 +175,22 @@ void *run_thread_send(void *message_body) {
     }
 
     int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
-
+    int retries = 0;
+    
     if (status < 0) {
-      perror("send");
-      exit(1);
+
+      while (retries < 3) {
+        int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
+        if (status < 0) {
+          retries += 1;
+          sleep(2);
+        } else {
+          pthread_exit((void *) 1);
+        }
+      }
+      printf("ERRO %s\n", message_body);
     }
   }
-
 }
 
 void list_users() {
