@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <mqueue.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -180,7 +181,13 @@ void list_users() {
   }
 }
 
+void exit_handler(int signum) {
+  printf("Para sair do programa, digite 'sair'\n");
+}
+
 int main(int argc, char const *argv[]) {
+  signal(SIGINT, exit_handler);
+
   char queue_name[CHAT_FILE_LEN];
 
   char message_body[MAX_MSG_LEN];
@@ -201,6 +208,9 @@ int main(int argc, char const *argv[]) {
     if (strcmp(message_body, "list\n") == 0) {
       list_users();
       continue;
+    } else if (strcmp(message_body, "sair\n") == 0) {
+      mq_unlink(queue_name);
+      return 0;
     } else if (strncmp(message_body, username, strlen(username)) == 0) {
       char message_body_thread[MAX_MSG_LEN];
       strcpy(message_body_thread, message_body);
@@ -213,7 +223,5 @@ int main(int argc, char const *argv[]) {
 
   }
 
-  pthread_join(receiver, NULL);
-  mq_unlink(queue_name);
   return 0;
 }
