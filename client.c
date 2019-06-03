@@ -17,6 +17,11 @@ mqd_t register_user(char *queue_name, char *username) {
   printf("Bem-vindo ao chat! Qual seu nome? (max 10 caracteres)\n");
   scanf("%s", username);
 
+  if (!strcmp(username, "all")) {
+    printf("Você não pode criar um usuário com esse nome!\n");
+    exit(1);
+  }
+
   struct mq_attr attr;
   attr.mq_maxmsg = MAX_MSG;
   attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
