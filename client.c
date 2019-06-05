@@ -94,7 +94,7 @@ void *run_thread_receive(void *queue) {
     strcat(formatted_message, ": ");
     strcat(formatted_message, message_content);
 
-    printf("%s\n", formatted_message);
+    printf(CYAN_TEXT "%s\n" COLOR_RESET, formatted_message);
     memset(message, 0, MAX_MSG_LEN);
     memset(formatted_message, 0, MAX_MSG_LEN);
   }
@@ -110,7 +110,7 @@ void retry(mqd_t queue, char *message_body) {
       retries += 1;
       sleep(2);
     } else {
-      pthread_exit((void *) 1);
+      return;
     }
   }
   printf("ERRO %s\n", message_body);
@@ -143,8 +143,7 @@ void *run_thread_broadcast(void *message_body) {
         umask(old_umask);
 
         if (oq < 0) {
-          perror("open");
-          exit(1);
+          continue;
         }
 
         int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
@@ -191,12 +190,9 @@ void *run_thread_send(void *message_body) {
 
     if (oq < 0) {
       if (errno == ENOENT) {
-        printf("UNKNOWNUSER %s\n", receiver_name);
-        pthread_exit((void *) 1);
-      } else {
-        perror("open");
-        exit(1);
+        printf(RED_TEXT "UNKNOWNUSER %s\n" COLOR_RESET, receiver_name);
       }
+      pthread_exit((void *) 1);
     }
 
     int status = mq_send(oq, (const char *) message_body, MAX_MSG_LEN * sizeof(char), 0);
@@ -224,7 +220,7 @@ void list_users() {
         char *token = strtok(queue_name, "-");
         token = strtok(NULL, "-");
 
-        printf("%s\n", token);
+        printf(GREEN_TEXT "- %s\n" COLOR_RESET, token);
       }
     }
   }
