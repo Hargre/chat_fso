@@ -37,8 +37,7 @@
 *.i*86
 *.x86_64
 *.hex
-bin
-client
+prog
 
 # Debug files
 *.dSYM/
