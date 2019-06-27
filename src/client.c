@@ -234,6 +234,7 @@ int main(int argc, char const *argv[]) {
   signal(SIGINT, exit_handler);
 
   char queue_name[CHAT_FILE_LEN];
+  t_channel channels[10];
 
   char message_body[MAX_MSG_LEN];
   mqd_t queue = register_user(queue_name, username);
