@@ -1,3 +1,6 @@
+#ifndef __CHAT_TYPES_H__
+#define __CHAT_TYPES_H__
+
 #define MAX_USERNAME_LEN 10
 #define CHAT_FILE_LEN 17 // 6 from chat- prefix + 10 from username len + extra.
 #define CHANNEL_FILE_LEN 18 // 7 from canal- prefix + 10 from username len + extra.
@@ -19,9 +22,4 @@
 #define CYAN_TEXT    "\033[36;1m"
 #define WHITE_TEXT   "\033[37;1m"
 
-typedef struct {
-  char channel_name[CHANNEL_FILE_LEN];
-  char channel_users[MAX_USERS_PER_CHANNEL][MAX_USERNAME_LEN];
-  mqd_t channel_queue;
-  int current_users;
-} t_channel;
+#endif

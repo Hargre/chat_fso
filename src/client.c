@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "types.h"
+#include "channel.h"
 
 char username[MAX_USERNAME_LEN];
 
@@ -234,7 +235,8 @@ int main(int argc, char const *argv[]) {
   signal(SIGINT, exit_handler);
 
   char queue_name[CHAT_FILE_LEN];
-  t_channel channels[10];
+  char owned_channels[10][CHANNEL_FILE_LEN];
+  int existing_channels = 0;
 
   char message_body[MAX_MSG_LEN];
   mqd_t queue = register_user(queue_name, username);
@@ -256,7 +258,31 @@ int main(int argc, char const *argv[]) {
       continue;
     } else if (strcmp(message_body, "sair\n") == 0) {
       mq_unlink(queue_name);
+      for (int i = 0; i < existing_channels; i++) {
+        mq_unlink(owned_channels[i]);
+        char users_in_channel_file[30];
+        strcpy(users_in_channel_file, "/tmp");
+        strcat(users_in_channel_file, owned_channels[i]);
+        remove(users_in_channel_file);
+      }
       return 0;
+    } else if (strcmp(message_body, "cria_canal\n") == 0) {
+      printf("Qual o nome do canal?\n");
+
+      char buffer[MAX_USERNAME_LEN];
+      fgets(buffer, MAX_USERNAME_LEN, stdin);
+      buffer[strlen(buffer) - 1] = '\0';
+
+      if (create_channel(buffer, username)) {
+        char channel_filename[CHANNEL_FILE_LEN];
+        strcpy(channel_filename, CHANNEL_PREFIX);
+        strcat(channel_filename, buffer);
+
+        strcpy(owned_channels[existing_channels], channel_filename);
+        existing_channels += 1;
+      }
+    } else if (strcmp(message_body, "join_canal\n") == 0) {
+
     } else if (strncmp(message_body, username, strlen(username)) == 0) {
       char message_body_thread[MAX_MSG_LEN];
       strcpy(message_body_thread, message_body);
