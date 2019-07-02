@@ -205,6 +205,40 @@ void *run_thread_send(void *message_body) {
   }
 }
 
+void *run_thread_join_channel(void *channel_name) {
+
+
+  struct mq_attr attr;
+  attr.mq_maxmsg = MAX_MSG;
+  attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
+
+  char channel_queue[CHANNEL_FILE_LEN];
+  strcpy(channel_queue, CHANNEL_PREFIX);
+  strcat(channel_queue, (char *)channel_name);
+
+  __mode_t old_umask = umask(0155);
+  mqd_t oq = mq_open(channel_queue, O_WRONLY|O_NONBLOCK, 0622, &attr);
+  umask(old_umask);
+
+  if (oq < 0) {
+    printf("Erro ao entrar no canal\n");
+    pthread_exit((void *) 1);
+  }
+
+  char message[MAX_MSG_LEN];
+  strcpy(message, username);
+  strcat(message, ":");
+  strcat(message, "JOIN");
+
+  int status = mq_send(oq, (const char *) message, MAX_MSG_LEN * sizeof(char), 0);
+  if (status < 0) {
+    printf("Erro ao entrar no canal\n");
+    pthread_exit((void *) 1);
+  } else {
+    printf("Você entrou no canal %s!\n", (char *) channel_name);
+  }
+}
+
 void list_users() {
   DIR *queues_dir;
   struct dirent *ptr_dir;
@@ -280,9 +314,21 @@ int main(int argc, char const *argv[]) {
 
         strcpy(owned_channels[existing_channels], channel_filename);
         existing_channels += 1;
+
+        printf("Canal %s criado com sucesso!\n", buffer);
+
+        pthread_t channel_receiver;
+        pthread_create(&channel_receiver, NULL, run_thread_channel_receive, (void *)channel_filename);
       }
     } else if (strcmp(message_body, "join_canal\n") == 0) {
+      printf("Qual o nome do canal?\n");
 
+      char buffer[MAX_USERNAME_LEN];
+      fgets(buffer, MAX_USERNAME_LEN, stdin);
+      buffer[strlen(buffer) - 1] = '\0';
+
+      pthread_t channel_join;
+      pthread_create(&channel_join, NULL, run_thread_join_channel, (void *)buffer);
     } else if (strncmp(message_body, username, strlen(username)) == 0) {
       char message_body_thread[MAX_MSG_LEN];
       strcpy(message_body_thread, message_body);
