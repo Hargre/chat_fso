@@ -269,7 +269,7 @@ int main(int argc, char const *argv[]) {
   signal(SIGINT, exit_handler);
 
   char queue_name[CHAT_FILE_LEN];
-  char owned_channels[10][CHANNEL_FILE_LEN];
+  t_channel *owned_channels[10];
   int existing_channels = 0;
 
   char message_body[MAX_MSG_LEN];
@@ -293,11 +293,7 @@ int main(int argc, char const *argv[]) {
     } else if (strcmp(message_body, "sair\n") == 0) {
       mq_unlink(queue_name);
       for (int i = 0; i < existing_channels; i++) {
-        mq_unlink(owned_channels[i]);
-        char users_in_channel_file[30];
-        strcpy(users_in_channel_file, "/tmp");
-        strcat(users_in_channel_file, owned_channels[i]);
-        remove(users_in_channel_file);
+        mq_unlink(owned_channels[i]->channel_name);
       }
       return 0;
     } else if (strcmp(message_body, "cria_canal\n") == 0) {
@@ -307,18 +303,20 @@ int main(int argc, char const *argv[]) {
       fgets(buffer, MAX_USERNAME_LEN, stdin);
       buffer[strlen(buffer) - 1] = '\0';
 
-      if (create_channel(buffer, username)) {
+      t_channel *channel = create_channel(buffer, username);
+
+      if (channel) {
         char channel_filename[CHANNEL_FILE_LEN];
         strcpy(channel_filename, CHANNEL_PREFIX);
         strcat(channel_filename, buffer);
 
-        strcpy(owned_channels[existing_channels], channel_filename);
+        owned_channels[existing_channels] = channel;
         existing_channels += 1;
 
         printf("Canal %s criado com sucesso!\n", buffer);
 
         pthread_t channel_receiver;
-        pthread_create(&channel_receiver, NULL, run_thread_channel_receive, (void *)channel_filename);
+        pthread_create(&channel_receiver, NULL, run_thread_channel_receive, (void *)channel);
       }
     } else if (strcmp(message_body, "join_canal\n") == 0) {
       printf("Qual o nome do canal?\n");

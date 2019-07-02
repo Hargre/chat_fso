@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-int create_channel(char *channel_name, char *channel_owner) {
+t_channel *create_channel(char *channel_name, char *channel_owner) {
   char channel_filename[CHANNEL_FILE_LEN];
 
   struct mq_attr attr;
@@ -24,29 +24,18 @@ int create_channel(char *channel_name, char *channel_owner) {
 
   if (queue < 0) {
     perror("mq_open");
-    return false;
+    return NULL;
   }
 
-  char channel_users_path[100];
-  strcpy(channel_users_path, "/tmp");
-  strcat(channel_users_path, channel_filename);
+  t_channel *channel = malloc(sizeof(t_channel));
+  strcpy(channel->channel_name, channel_filename);
+  strcpy(channel->channel_users[0], channel_owner);
+  channel->current_users = 1;
 
-  FILE *channel_users = fopen(channel_users_path, "wb");
-
-  if (channel_users != NULL) {
-    fwrite(channel_owner, sizeof(char), MAX_USERNAME_LEN, channel_users);
-  } else {
-    mq_unlink(channel_filename);
-    return false;
-  }
-
-  mq_close(queue);
-  fclose(channel_users);
-
-  return true;
+  return channel;
 }
 
-void *run_thread_channel_receive(void *channel_name) {
+void *run_thread_channel_receive(void *channel) {
   char channel_filename[CHANNEL_FILE_LEN];
 
   struct mq_attr attr;
@@ -54,7 +43,7 @@ void *run_thread_channel_receive(void *channel_name) {
   attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
 
   mqd_t queue;
-  strcpy(channel_filename, (char *)channel_name);
+  strcpy(channel_filename, ((t_channel *)channel)->channel_name);
 
   __mode_t old_umask = umask(0155);
   queue = mq_open(channel_filename, O_RDWR|O_CREAT, 0622, &attr);
@@ -85,25 +74,12 @@ void *run_thread_channel_receive(void *channel_name) {
     strcpy(receiver, token);
 
     if (!strcmp(receiver, "JOIN")) {
-      join_channel(channel_filename, sender);
+      join_channel((t_channel *)channel, sender);
     }
   }
 }
 
-void join_channel(char *channel_name, char *username) {
-  FILE *channel_users = open_channel_data(channel_name, "ab");
-  if (channel_users) {
-    fwrite(username, sizeof(char), MAX_USERNAME_LEN, channel_users);
-  }
-  fclose(channel_users);
-}
-
-FILE *open_channel_data(char *channel_name, char *mode) {
-  char channel_users_path[100];
-  strcpy(channel_users_path, "/tmp");
-  strcat(channel_users_path, channel_name);
-
-  FILE *channel_users = fopen(channel_users_path, mode);
-
-  return channel_users;
+void join_channel(t_channel *channel, char *username) {
+  strcpy(channel->channel_users[channel->current_users], username);
+  channel->current_users += 1;
 }
