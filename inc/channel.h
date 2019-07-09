@@ -18,5 +18,6 @@ void leave_channel(char *channel_name, char *username);
 void send_message_to_channel_users(t_channel *channel, char *message);
 FILE *open_channel_data(char *channel_name, char *mode);
 void *run_thread_channel_receive(void *channel_name);
-
+int is_user_in_channel(t_channel *channel, char *user);
+void inform_permission_denied(t_channel *channel, char *user);
 #endif

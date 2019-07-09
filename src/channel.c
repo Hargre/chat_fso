@@ -77,8 +77,15 @@ void *run_thread_channel_receive(void *channel) {
     if (!strcmp(receiver, "JOIN")) {
       join_channel((t_channel *)channel, sender);
     } else {
+
+      if (!is_user_in_channel((t_channel *)channel, sender)) {
+        inform_permission_denied((t_channel *)channel, sender);
+        continue;
+      }
+
       token = strtok(NULL, ":");
       char message_body[MAX_MSG_LEN];
+      memset(message_body, 0, MAX_MSG_LEN);
       strcat(message_body, "<");
       strcat(message_body, sender);
       strcat(message_body, "> ");
@@ -87,6 +94,39 @@ void *run_thread_channel_receive(void *channel) {
       send_message_to_channel_users(channel, message_body);
     }
   }
+}
+
+int is_user_in_channel(t_channel *channel, char *user) {
+  for (int i = 0; i < channel->current_users; i++) {
+    if (!strcmp(channel->channel_users[i], user)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void inform_permission_denied(t_channel *channel, char *user) {
+  char receiver_queue[CHAT_FILE_LEN];
+  strcpy(receiver_queue, CHAT_PREFIX);
+  strcat(receiver_queue, user);
+
+  char message[MAX_MSG_LEN];
+  strcpy(message, "#");
+  strcat(message, channel->channel_name);
+  strcat(message, ":");
+  strcat(message, user);
+  strcat(message, ":");
+  strcat(message, "NOT A MEMBER");
+
+  struct mq_attr attr;
+  attr.mq_maxmsg = MAX_MSG;
+  attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
+
+  __mode_t old_umask = umask(0155);
+  mqd_t oq = mq_open(receiver_queue, O_WRONLY|O_NONBLOCK, 0622, &attr);
+  umask(old_umask);
+
+  int status = mq_send(oq, (const char *) message, MAX_MSG_LEN * sizeof(char), 0);
 }
 
 void send_message_to_channel_users(t_channel *channel, char *message) {
