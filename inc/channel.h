@@ -15,7 +15,7 @@ typedef struct {
 t_channel *create_channel(char *channel_name, char *channel_owner);
 void join_channel(t_channel *channel, char *username);
 void leave_channel(char *channel_name, char *username);
-void send_message_to_channel_users(char *channel_name, char *message);
+void send_message_to_channel_users(t_channel *channel, char *message);
 FILE *open_channel_data(char *channel_name, char *mode);
 void *run_thread_channel_receive(void *channel_name);
 

@@ -239,6 +239,46 @@ void *run_thread_join_channel(void *channel_name) {
   }
 }
 
+void *run_thread_send_channel(void *message_body) {
+  struct mq_attr attr;
+  attr.mq_maxmsg = MAX_MSG;
+  attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
+
+  char buffer_to_tokenize[MAX_MSG_LEN];
+  strcpy(buffer_to_tokenize, (char *) message_body);
+
+  char full_message[MAX_MSG_LEN];
+  strcpy(full_message, username);
+  strcat(full_message, ":#");
+  strcat(full_message, (char *)message_body);
+
+  char *receiver_channel = strtok(buffer_to_tokenize, ":");
+
+  char receiver_queue[CHAT_FILE_LEN];
+  char receiver_name[MAX_USERNAME_LEN];
+
+  strcpy(receiver_queue, CHANNEL_PREFIX);
+  strcat(receiver_queue, receiver_channel);
+
+  __mode_t old_umask = umask(0155);
+  mqd_t oq = mq_open(receiver_queue, O_WRONLY|O_NONBLOCK, 0622, &attr);
+  umask(old_umask);
+
+  if (oq < 0) {
+    if (errno == ENOENT) {
+      printf(RED_TEXT "UNKNOWNUSER %s\n" COLOR_RESET, receiver_name);
+    }
+    pthread_exit((void *) 1);
+  }
+
+  int status = mq_send(oq, (const char *) full_message, MAX_MSG_LEN * sizeof(char), 0);
+  int retries = 0;
+
+  if (status < 0) {
+    retry(oq, message_body);
+  }
+}
+
 void list_users() {
   DIR *queues_dir;
   struct dirent *ptr_dir;
@@ -327,6 +367,28 @@ int main(int argc, char const *argv[]) {
 
       pthread_t channel_join;
       pthread_create(&channel_join, NULL, run_thread_join_channel, (void *)buffer);
+    } else if (strcmp(message_body, "send_canal\n") == 0) {
+      printf("Qual o nome do canal?\n");
+
+      char buffer[MAX_USERNAME_LEN];
+      fgets(buffer, MAX_USERNAME_LEN, stdin);
+      buffer[strlen(buffer) - 1] = '\0';
+
+      printf("Qual a mensagem?\n");
+      char message_buffer[MAX_MSG_LEN];
+      memset(message_buffer, 0, MAX_MSG_LEN);
+      fgets(message_buffer, MAX_MSG_LEN, stdin);
+      message_buffer[strlen(message_buffer) - 1] = '\0';
+
+      char message_content[MAX_MSG_LEN];
+      memset(message_content, 0, MAX_MSG_LEN);
+      strcat(message_content, buffer);
+      strcat(message_content, ":");
+      strcat(message_content, message_buffer);
+
+      pthread_t channel_sender;
+      pthread_create(&channel_sender, NULL, run_thread_send_channel, message_content);
+
     } else if (strncmp(message_body, username, strlen(username)) == 0) {
       char message_body_thread[MAX_MSG_LEN];
       strcpy(message_body_thread, message_body);

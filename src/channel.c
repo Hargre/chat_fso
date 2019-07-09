@@ -28,7 +28,7 @@ t_channel *create_channel(char *channel_name, char *channel_owner) {
   }
 
   t_channel *channel = malloc(sizeof(t_channel));
-  strcpy(channel->channel_name, channel_filename);
+  strcpy(channel->channel_name, channel_name);
   strcpy(channel->channel_users[0], channel_owner);
   channel->current_users = 1;
 
@@ -43,7 +43,8 @@ void *run_thread_channel_receive(void *channel) {
   attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
 
   mqd_t queue;
-  strcpy(channel_filename, ((t_channel *)channel)->channel_name);
+  strcpy(channel_filename, CHANNEL_PREFIX);
+  strcat(channel_filename, ((t_channel *)channel)->channel_name);
 
   __mode_t old_umask = umask(0155);
   queue = mq_open(channel_filename, O_RDWR|O_CREAT, 0622, &attr);
@@ -75,7 +76,46 @@ void *run_thread_channel_receive(void *channel) {
 
     if (!strcmp(receiver, "JOIN")) {
       join_channel((t_channel *)channel, sender);
+    } else {
+      token = strtok(NULL, ":");
+      char message_body[MAX_MSG_LEN];
+      strcat(message_body, "<");
+      strcat(message_body, sender);
+      strcat(message_body, "> ");
+      strcat(message_body, token);
+
+      send_message_to_channel_users(channel, message_body);
     }
+  }
+}
+
+void send_message_to_channel_users(t_channel *channel, char *message) {
+  for (int i = 0; i < channel->current_users; i++) {
+    char receiver_queue[CHAT_FILE_LEN];
+    strcpy(receiver_queue, CHAT_PREFIX);
+    strcat(receiver_queue, channel->channel_users[i]);
+
+    char full_message[MAX_MSG_LEN];
+    strcpy(full_message, "#");
+    strcat(full_message, channel->channel_name);
+    strcat(full_message, ":");
+    strcat(full_message, channel->channel_users[i]);
+    strcat(full_message, ":");
+    strcat(full_message, message);
+
+    struct mq_attr attr;
+    attr.mq_maxmsg = MAX_MSG;
+    attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
+
+    __mode_t old_umask = umask(0155);
+    mqd_t oq = mq_open(receiver_queue, O_WRONLY|O_NONBLOCK, 0622, &attr);
+    umask(old_umask);
+
+    if (oq < 0) {
+      continue;
+    }
+
+    int status = mq_send(oq, (const char *) full_message, MAX_MSG_LEN * sizeof(char), 0);
   }
 }
 
