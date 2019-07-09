@@ -22,7 +22,7 @@ function __templateGENNAME()
 function __templateEXIT()
 {
   # comando para sair do seu programa
-  echo exit
+  echo sair
 }
 
 function __templateSENDMSG()
@@ -32,12 +32,12 @@ function __templateSENDMSG()
 
   # template para o envio de mensagem, se o seu programa pede primeiro o
   # username em uma linha e depois a mensagem em outra siga como abaixo
-  echo "$TO"
-  echo "$MSG"
+  # echo "$TO"
+  # echo "$MSG"
 
   #Se o seu programa pede qu ena mesma linha tenha o destinatário e a
   #mensagem, comente as linhas acima e descomente abaixo
-  # echo "$TO:$MSG"
+  echo "$USER:$TO:$MSG"
 }
 
 function __templateBROADCAST()
@@ -54,6 +54,7 @@ function __templateCRIARSALA()
 {
   #template para criar sala
   local SALA=$1
+  echo cria_canal
   echo "$SALA"
 }
 
@@ -62,6 +63,7 @@ function __templateSENDMSGSALA()
   local SALA="$1"
   local MSG="$2"
   #template enviar mensagem em sala
+  echo send_canal
   echo $SALA
   echo $MSG
 }
@@ -69,8 +71,8 @@ function __templateSENDMSGSALA()
 function __templateJOINSALA()
 {
   local SALA=$1
+  echo join_canal
   echo $SALA
-  echo join
 }
 
 function __templateEXITSALA()
