@@ -31,25 +31,6 @@ mqd_t register_user(char *queue_name, char *username) {
   strcpy(queue_name, CHAT_PREFIX);
   strcat(queue_name, username);
 
-
-  DIR *queues_dir;
-  struct dirent *ptr_dir;
-  queues_dir = opendir("/dev/mqueue");
-
-  if (queues_dir) {
-    while ((ptr_dir = readdir(queues_dir)) != NULL) {
-      char filename[CHAT_FILE_LEN];
-
-      strcpy(filename, "/");
-      strcat(filename, ptr_dir->d_name);
-
-      if (!strcmp(filename, queue_name)) {
-          printf("Já existe outro usuário com esse nome!\n");
-          exit(1);
-      }
-    }
-  }
-
   __mode_t old_umask = umask(0155);
   queue = mq_open(queue_name, O_RDWR|O_CREAT, 0622, &attr);
   umask(old_umask);
