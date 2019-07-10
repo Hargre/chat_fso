@@ -76,6 +76,8 @@ void *run_thread_channel_receive(void *channel) {
 
     if (!strcmp(receiver, "JOIN")) {
       join_channel((t_channel *)channel, sender);
+    } else if (!strcmp(receiver, "LEAVE")) {
+      leave_channel((t_channel *)channel, sender);
     } else {
 
       if (!is_user_in_channel((t_channel *)channel, sender)) {
@@ -162,4 +164,21 @@ void send_message_to_channel_users(t_channel *channel, char *message) {
 void join_channel(t_channel *channel, char *username) {
   strcpy(channel->channel_users[channel->current_users], username);
   channel->current_users += 1;
+}
+
+void leave_channel(t_channel *channel, char *username) {
+  if (channel->current_users == 1) {
+    memset(channel->channel_users[0], 0, MAX_USERNAME_LEN);
+    channel->current_users = 0;
+    return;
+  }
+
+  for (int i = 0; i < channel->current_users; i++) {
+    if (!strcmp(channel->channel_users[i], username)) {
+      strcpy(channel->channel_users[i], channel->channel_users[channel->current_users - 1]);
+      memset(channel->channel_users[channel->current_users - 1], 0, MAX_USERNAME_LEN);
+      channel->current_users -= 1;
+      return;
+    }
+  }
 }

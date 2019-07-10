@@ -220,6 +220,38 @@ void *run_thread_join_channel(void *channel_name) {
   }
 }
 
+void *run_thread_leave_channel(void *channel_name) {
+  struct mq_attr attr;
+  attr.mq_maxmsg = MAX_MSG;
+  attr.mq_msgsize = MAX_MSG_LEN * sizeof(char);
+
+  char channel_queue[CHANNEL_FILE_LEN];
+  strcpy(channel_queue, CHANNEL_PREFIX);
+  strcat(channel_queue, (char *)channel_name);
+
+  __mode_t old_umask = umask(0155);
+  mqd_t oq = mq_open(channel_queue, O_WRONLY|O_NONBLOCK, 0622, &attr);
+  umask(old_umask);
+
+  if (oq < 0) {
+    printf("Erro ao sair do canal\n");
+    pthread_exit((void *) 1);
+  }
+
+  char message[MAX_MSG_LEN];
+  strcpy(message, username);
+  strcat(message, ":");
+  strcat(message, "LEAVE");
+
+  int status = mq_send(oq, (const char *) message, MAX_MSG_LEN * sizeof(char), 0);
+  if (status < 0) {
+    printf("Erro ao sair do canal\n");
+    pthread_exit((void *) 1);
+  } else {
+    printf("Você saiu do canal %s.\n", (char *) channel_name);
+  }
+}
+
 void *run_thread_send_channel(void *message_body) {
   struct mq_attr attr;
   attr.mq_maxmsg = MAX_MSG;
@@ -314,7 +346,10 @@ int main(int argc, char const *argv[]) {
     } else if (strcmp(message_body, "sair\n") == 0) {
       mq_unlink(queue_name);
       for (int i = 0; i < existing_channels; i++) {
-        mq_unlink(owned_channels[i]->channel_name);
+        char channel_file[CHANNEL_FILE_LEN];
+        strcpy(channel_file, CHANNEL_PREFIX);
+        strcat(channel_file, owned_channels[i]->channel_name);
+        mq_unlink(channel_file);
       }
       return 0;
     } else if (strcmp(message_body, "cria_canal\n") == 0) {
@@ -370,6 +405,15 @@ int main(int argc, char const *argv[]) {
       pthread_t channel_sender;
       pthread_create(&channel_sender, NULL, run_thread_send_channel, message_content);
 
+    } else if (strcmp(message_body, "leave_canal\n") == 0) {
+      printf("Qual o nome do canal?\n");
+
+      char buffer[MAX_USERNAME_LEN];
+      fgets(buffer, MAX_USERNAME_LEN, stdin);
+      buffer[strlen(buffer) - 1] = '\0';
+
+      pthread_t channel_leave;
+      pthread_create(&channel_leave, NULL, run_thread_leave_channel, (void *)buffer);
     } else if (strncmp(message_body, username, strlen(username)) == 0) {
       char message_body_thread[MAX_MSG_LEN];
       strcpy(message_body_thread, message_body);
