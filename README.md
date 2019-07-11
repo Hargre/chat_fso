@@ -36,5 +36,12 @@ Até o presente momento, foram desenvolvidas as seguintes funcionalidades do cha
   - Usar sinal para bloquear saída via Ctrl-C
   - Sair através do comando "sair"
 
+- Sistema de salas
+  - Criar uma sala com o comando "cria_canal"
+  - Se juntar a uma sala com o comando "join_canal"
+  - Enviar mensagem para uma sala com o comando "send_canal"
+  - Sair de um canal com o comando "leave_canal"
+  - Ao sair do programa o sistema destrói as filas de todos os canais criados pelo usuário.
+
 ### Problemas conhecidos
  - O sistema não cria threads novas para o reenvio. No caso do broadcast isso pode gerar atraso para enviar a mensagem para todos os usuários.
